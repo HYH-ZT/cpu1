@@ -223,6 +223,69 @@ always@(*) begin
                             instvalid = `InstValid;
                             stallreq_upstream_o = `Stop;
                         end
+                        //算术
+                        `EXE_FUN_SLT: begin
+                        we_reg_o = `WriteEnable;
+                        aluop_o = `EXE_SLT_OP;
+                        alusel_o = `EXE_RES_ARITHMETIC;
+                        re1_o = `ReadEnable;
+                        re2_o = `ReadEnable;
+                        instvalid = `InstValid;
+                        end
+                        `EXE_FUN_SLTU: begin
+                            we_reg_o = `WriteEnable;
+                            aluop_o = `EXE_SLTU_OP;
+                            alusel_o = `EXE_RES_ARITHMETIC;
+                            re1_o = `ReadEnable;
+                            re2_o = `ReadEnable;
+                            instvalid = `InstValid;
+                        end
+                        `EXE_FUN_ADD: begin
+                            we_reg_o = `WriteEnable;
+                            aluop_o = `EXE_ADD_OP;
+                            alusel_o = `EXE_RES_ARITHMETIC;
+                            re1_o = `ReadEnable;
+                            re2_o = `ReadEnable;
+                            instvalid = `InstValid;
+                        end
+                        `EXE_FUN_ADDU: begin
+                            we_reg_o = `WriteEnable;
+                            aluop_o = `EXE_ADDU_OP;
+                            alusel_o = `EXE_RES_ARITHMETIC;
+                            re1_o = `ReadEnable;
+                            re2_o = `ReadEnable;
+                            instvalid = `InstValid;
+                        end
+                        `EXE_FUN_SUB: begin
+                            we_reg_o = `WriteEnable;
+                            aluop_o = `EXE_SUB_OP;
+                            alusel_o = `EXE_RES_ARITHMETIC;
+                            re1_o = `ReadEnable;
+                            re2_o = `ReadEnable;
+                            instvalid = `InstValid;
+                        end
+                        `EXE_FUN_SUBU: begin
+                            we_reg_o = `WriteEnable;
+                            aluop_o = `EXE_SUBU_OP;
+                            alusel_o = `EXE_RES_ARITHMETIC;
+                            re1_o = `ReadEnable;
+                            re2_o = `ReadEnable;
+                            instvalid = `InstValid;
+                        end
+                        `EXE_FUN_MULT: begin
+                            we_reg_o = `WriteDisable;
+                            aluop_o = `EXE_MULT_OP;
+                            re1_o = `ReadEnable;
+                            re2_o = `ReadEnable;
+                            instvalid = `InstValid;
+                        end
+                        `EXE_FUN_MULTU: begin
+                            we_reg_o = `WriteDisable;
+                            aluop_o = `EXE_MULTU_OP;
+                            re1_o = `ReadEnable;
+                            re2_o = `ReadEnable;
+                            instvalid = `InstValid;
+                        end
 
                         default: begin
                         end
@@ -306,7 +369,15 @@ always@(*) begin
                 waddr_reg_o = rt;
                 instvalid = `InstValid;
             end
-            //还差pref指令
+            `EXE_PREF: begin                            //预取指令,在本项目中无缓存，不做处理
+                we_reg_o = `WriteEnable;
+                aluop_o = `EXE_NOP_OP;
+                alusel_o = `EXE_RES_NOP;
+                re1_o = `ReadDisable;
+                re2_o = `ReadDisable;
+                waddr_reg_o = `NOPRegAddr;
+                instvalid = `InstValid;
+            end
 
             `EXE_J: begin
                 we_reg_o = `WriteDisable;
@@ -341,10 +412,77 @@ always@(*) begin
                 instvalid = `InstValid;
                 stallreq_upstream_o = `Stop;
             end
-
-            default : begin //这里赋的默认值具体语句在case语句前
+            `EXE_SLTI: begin
+                we_reg_o = `WriteEnable;
+                aluop_o = `EXE_SLT_OP;
+                alusel_o = `EXE_RES_ARITHMETIC;
+                re1_o = `ReadEnable;
+                re2_o = `ReadDisable;
+                imm = {{16{inst_i[15]}}, inst_i[15:0]};
+                waddr_reg_o = inst_i[20:16];
+                instvalid = `InstValid;
             end
-            
+            `EXE_SLTI: begin
+                we_reg_o = `WriteEnable;
+                aluop_o = `EXE_SLTU_OP;
+                alusel_o = `EXE_RES_ARITHMETIC;
+                re1_o = `ReadEnable;
+                re2_o = `ReadDisable;
+                imm = {{16{inst_i[15]}}, inst_i[15:0]};
+                waddr_reg_o = inst_i[20:16];
+                instvalid = `InstValid;
+            end
+            `EXE_ADDI: begin
+                we_reg_o = `WriteEnable;
+                aluop_o = `EXE_ADDI_OP;
+                alusel_o = `EXE_RES_ARITHMETIC;
+                re1_o = `ReadEnable;
+                re2_o = `ReadDisable;
+                imm = {{16{inst_i[15]}}, inst_i[15:0]};
+                waddr_reg_o = inst_i[20:16];
+                instvalid = `InstValid;
+            end
+            `EXE_ADDIU: begin
+                we_reg_o = `WriteEnable;
+                aluop_o = `EXE_ADDIU_OP;
+                alusel_o = `EXE_RES_ARITHMETIC;
+                re1_o = `ReadEnable;
+                re2_o = `ReadDisable;
+                imm = {{16{inst_i[15]}}, inst_i[15:0]};
+                waddr_reg_o = inst_i[20:16];
+                instvalid = `InstValid;
+            end
+            `EXE_SPECIAL2_INST: begin                   //special2指令码
+                case(op_fun)
+                    `EXE_FUN_CLZ: begin
+                        we_reg_o = `WriteEnable;
+                        aluop_o = `EXE_CLZ_OP;
+                        alusel_o = `EXE_RES_ARITHMETIC;
+                        re1_o = `ReadEnable;
+                        re2_o = `ReadDisable;
+                        instvalid = `InstValid;
+                    end
+                    `EXE_FUN_CLO: begin
+                        we_reg_o = `WriteEnable;
+                        aluop_o = `EXE_CLO_OP;
+                        alusel_o = `EXE_RES_ARITHMETIC;
+                        re1_o = `ReadEnable;
+                        re2_o = `ReadDisable;
+                        instvalid = `InstValid;
+                    end
+                    `EXE_FUN_MUL: begin
+                        we_reg_o = `WriteEnable;
+                        aluop_o = `EXE_MUL_OP;
+                        alusel_o = `EXE_RES_MUL;
+                        re1_o = `ReadEnable;
+                        re2_o = `ReadEnable;
+                        instvalid = `InstValid;
+                    end
+                    default: begin 
+                    end
+                endcase 
+            end
+            default: begin end
         endcase
     end //end of else
 end //end of always
