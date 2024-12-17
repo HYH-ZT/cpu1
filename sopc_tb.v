@@ -10,9 +10,9 @@ always#5 clk = ~clk;
 initial begin
     clk = 0;
     rst = 1;
-    #10
+    #30
     rst = 0;
-    #300
+    #600
     $finish;
 end
 

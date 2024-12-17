@@ -21,9 +21,9 @@ initial begin
     clka = 0;
     ena = 0;
     addra = 0;
-    #1000
-    ena = 1;
     #10
+    ena = 1;
+    #5
     addra = 0;
     #10
     addra = 1;

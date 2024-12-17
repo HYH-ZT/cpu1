@@ -1,11 +1,21 @@
-lui $5,0x0101
-lui $6,0x0101
-ori $5,$5,0x0101
-lui $7,0x0101   
-ori $2,$5,0x1100
-; or $5,$5,$2
-; andi $3,$5,0x00fe
-; and $5,$3,$5
-; xori $4,$5,0xff00
-; xor $5,$4,$5
-; nor $5,$4,$5
+ori $4,$0,0x0001    //1
+j label1            //2
+ori $4,$0,0x0002
+ori $4,$0,0x1111
+ori $4,$0,0x1100
+label1:ori $4,$0,0x0003 //3
+jal label2          //4
+ori $5, $0, 0x0101
+ori $4, $0, 0x0005
+ori $4, $0, 0x0006
+j label3
+nop
+label2:jalr $2, $31 //5
+or $4, $2, $0
+ori $4, $0, 0x0009
+label3:ori $4, $0, 0x0007
+jr $2
+ori $4, $0, 0x0008
+ori $4, $0, 0x1111
+ori $4, $0, 0x1100
+labelnop:nop
