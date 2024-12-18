@@ -25,51 +25,7 @@ module ex(
 
 //保存逻辑运算的结果
 reg[`RegBus] logicout;
-//保存移位运算结果
 reg[`RegBus] shiftres;
-//
-reg[`RegBus] moveres;
-
-//
-reg[`RegBus] HI;
-reg[`RegBus] LO;
-
-//保存溢出情况
-wire ov_sum;
-wire rdata1_eq_rdata2;          //第一个操作数是否等于第二个
-wire rdata1_lt_rdata2;          //第一个操作数是否小于第二个
-reg [`RegBus] arithmeticres;//算术运算结果
-
-wire [`RegBus] rdata2_i_mux;  //rdata2_i的补码
-wire [`RegBus] rdata1_i_not;  //rdata1_i的取反
-
-wire [`RegBus] result_sum;  //加法结果
-wire [`RegBus] opdata1_mult;//被乘数
-wire [`RegBus] opdata2_mult;//乘数
-wire [`DoubleRegBus] hilo_temp; //临时保存乘法结果
-reg [`DoubleRegBus] mulres; //保存乘法结果
-
-//判断是否为减法或有符号比较运算，对操作数2取反
-assign reg2_i_mux = (   (aluop_i == `EXE_SUB_OP) || 
-                        (aluop_i == `EXE_SUBU_OP) || 
-                        (aluop_i == `EXE_SLT_OP)) ?
-                        (~rdata2_i) + 1 : rdata2_i;
-
-//计算加减法以及比较运算结果
-assign result_sum = rdata1_i + rdata2_i_mux;
-//计算溢出
-assign ov_sum = (   (!rdata1_i[31] && !rdata2_i[31] && result_sum[31]) || 
-                    (rdata1_i[31] && rdata2_i[31] && !result_sum[31]));
-
-//判断操作数1是否小于操作数2
-assign rdata1_lt_rdata2 = (aluop_i == `EXE_SLT_OP) ?
-                        (   (rdata1_i[31] && !rdata2_i[31]) ||
-                            (!rdata1_i[31] && !rdata2_i[31] && result_sum[31]) ||
-                            (rdata1_i[31] && rdata2_i[31] && result_sum[31]))
-                            : (rdata1_i < rdata2_i);
-//对操作数1取反
-assign rdata1_i_not = ~rdata1_i;
-
 
 //***************************************************************************************************//
 //*******************************根据运算子类型aluop_i进行计算*****************************************//
@@ -99,7 +55,7 @@ always@(*) begin
         endcase
     end
 end
-//移位运算
+
 always@(*) begin
     if(rst == `RstEnable) begin
         shiftres = `ZeroWord;
@@ -124,98 +80,7 @@ always@(*) begin
         endcase
     end
 end
-//算术运算
-always@(*) begin
-    if (rst == `RstEnable) begin
-        arithmeticres = `ZeroWord;
-    end
-    else begin
-        case (aluop_i)
-            `EXE_SLT_OP, `EXE_SLTU_OP: begin
-                arithmeticres = rdata1_lt_rdata2;
-            end
-            `EXE_ADD_OP, `EXE_ADDU_OP, `EXE_ADDI_OP, `EXE_ADDIU_OP: begin
-                arithmeticres = result_sum;
-            end
-            `EXE_SUB_OP, `EXE_SUBU_OP: begin
-                arithmeticres = result_sum;
-            end
-            `EXE_CLZ_OP: begin
-                arithmeticres = rdata1_i[31] ? 0 :
-                                rdata1_i[30] ? 1 :
-                                rdata1_i[29] ? 2 :
-                                rdata1_i[28] ? 3 :
-                                rdata1_i[27] ? 4 :
-                                rdata1_i[26] ? 5 :
-                                rdata1_i[25] ? 6 :
-                                rdata1_i[24] ? 7 :
-                                rdata1_i[23] ? 8 :
-                                rdata1_i[22] ? 9 :
-                                rdata1_i[21] ? 10 :
-                                rdata1_i[20] ? 11 :
-                                rdata1_i[19] ? 12 :
-                                rdata1_i[18] ? 13 :
-                                rdata1_i[17] ? 14 :
-                                rdata1_i[16] ? 15 :
-                                rdata1_i[15] ? 16 :
-                                rdata1_i[14] ? 17 :
-                                rdata1_i[13] ? 18 :
-                                rdata1_i[12] ? 19 :
-                                rdata1_i[11] ? 20 :
-                                rdata1_i[10] ? 21 :
-                                rdata1_i[9] ? 22 :
-                                rdata1_i[8] ? 23 :
-                                rdata1_i[7] ? 24 :
-                                rdata1_i[6] ? 25 :
-                                rdata1_i[5] ? 26 :
-                                rdata1_i[4] ? 27 :
-                                rdata1_i[3] ? 28 :
-                                rdata1_i[2] ? 29 :
-                                rdata1_i[1] ? 30 :
-                                rdata1_i[0] ? 31 :
-                                32;
-            end
-            `EXE_CLO_OP: begin
-                arithmeticres = rdata1_i_not[31] ? 0 :
-                                rdata1_i_not[30] ? 1 :
-                                rdata1_i_not[29] ? 2 :
-                                rdata1_i_not[28] ? 3 :
-                                rdata1_i_not[27] ? 4 :
-                                rdata1_i_not[26] ? 5 :
-                                rdata1_i_not[25] ? 6 :
-                                rdata1_i_not[24] ? 7 :
-                                rdata1_i_not[23] ? 8 :
-                                rdata1_i_not[22] ? 9 :
-                                rdata1_i_not[21] ? 10 :
-                                rdata1_i_not[20] ? 11 :
-                                rdata1_i_not[19] ? 12 :
-                                rdata1_i_not[18] ? 13 :
-                                rdata1_i_not[17] ? 14 :
-                                rdata1_i_not[16] ? 15 :
-                                rdata1_i_not[15] ? 16 :
-                                rdata1_i_not[14] ? 17 :
-                                rdata1_i_not[13] ? 18 :
-                                rdata1_i_not[12] ? 19 :
-                                rdata1_i_not[11] ? 20 :
-                                rdata1_i_not[10] ? 21 :
-                                rdata1_i_not[9] ? 22 :
-                                rdata1_i_not[8] ? 23 :
-                                rdata1_i_not[7] ? 24 :
-                                rdata1_i_not[6] ? 25 :
-                                rdata1_i_not[5] ? 26 :
-                                rdata1_i_not[4] ? 27 :
-                                rdata1_i_not[3] ? 28 :
-                                rdata1_i_not[2] ? 29 :
-                                rdata1_i_not[1] ? 30 :
-                                rdata1_i_not[0] ? 31 :
-                                32;
-            end
-            default: begin
-                arithmeticres = `ZeroWord;
-            end
-        endcase
-    end
-end
+
 //***************************************************************************************************//
 //*******************************根据运算类型alusel_i选择运算结果**************************************//
 //***************************************************************************************************//

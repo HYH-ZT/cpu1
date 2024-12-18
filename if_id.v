@@ -36,7 +36,7 @@ module if_id(   //取指令阶段 instruction fetch to instruction decode
         if(rst == `RstEnable) begin
             id_pc <= `ZeroWord;
             id_inst <= `ZeroWord;
-        end
+        end   
         else if(stall[1] == `Stop || stall_delay[1] == `Stop) begin    //若取指暂停
             if(stall[2] == `NoStop) begin   //译码不暂停，输出空指令 ?会什么都不做还是输出第一条指令？:输出第一条指令
                 id_pc <= `ZeroWord;

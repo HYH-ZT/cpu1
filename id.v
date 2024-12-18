@@ -60,16 +60,18 @@ module id( //功能：在给指令解码的同时，取两个操作数送给下一级执行阶段
 
 
 //译码：将整条指令分割成不同的部分，做为标记，方便后续使用
-wire [5:0] op;
-wire [`RegAddrBus] rs, rt, rd;          //源地址寄存器，目的地址寄存器
+wire [5:0] op;                          //指令码
 wire [5:0] op_fun;                      //功能码
-wire [15:0] op_imm;                     //立即数
+wire [`RegAddrBus] rs, rt, rd;          //源地址寄存器，目的地址寄存器
 wire [5:0] sa;                          //移位量
+wire [15:0] op_imm;                     //立即数
+wire [31:0] op_imm_expand_32bits;                 //立即数左移16位
 
 assign op = inst_i[31:26];               //指令码，用于规定指令的类型
 assign rs = inst_i[25:21];               //I型指令的源寄存器
 assign rt = inst_i[20:16];               //I型指令的目的寄存器，R型指令的源寄存器
-assign op_imm = inst_i[15:0];            //I型指令的立即数
+assign op_imm = inst_i[15:0];            //I型指令的立即数，也是分支指令的offset
+assign op_imm_expand_32bits = {{16{op_imm[15]}}, op_imm[15:0]};
 
 assign rd = inst_i[15:11];               //R型指令的目的寄存器
 assign op_fun = inst_i[5:0];             //R型指令的功能码
@@ -82,7 +84,6 @@ assign pc_plus_2 = pc_i + 2;
 
 reg instvalid;                          //指示指令是否有效
 reg [`RegBus] imm;
-
 
 
 always@(*) begin
@@ -118,7 +119,8 @@ always@(*) begin
         raddr2_o = rt;                  //默认R型指令
         imm = `ZeroWord;
         branch_flag_o = `JumpDisable;
-        branch_target_addr_o = `NOPRegAddr;
+        branch_target_addr_o = `ZeroWord;   //注意这里是赋给pc的，所以应该是32位不是5位
+        return_addr_o = `ZeroWord;          //注意这里是赋给pc的，所以应该是32位不是5位
         next_in_delayslot_o = `IsNotDelaySlot;
         stallreq_upstream_o = `NoStop;
 
@@ -223,69 +225,6 @@ always@(*) begin
                             instvalid = `InstValid;
                             stallreq_upstream_o = `Stop;
                         end
-                        //算术
-                        `EXE_FUN_SLT: begin
-                        we_reg_o = `WriteEnable;
-                        aluop_o = `EXE_SLT_OP;
-                        alusel_o = `EXE_RES_ARITHMETIC;
-                        re1_o = `ReadEnable;
-                        re2_o = `ReadEnable;
-                        instvalid = `InstValid;
-                        end
-                        `EXE_FUN_SLTU: begin
-                            we_reg_o = `WriteEnable;
-                            aluop_o = `EXE_SLTU_OP;
-                            alusel_o = `EXE_RES_ARITHMETIC;
-                            re1_o = `ReadEnable;
-                            re2_o = `ReadEnable;
-                            instvalid = `InstValid;
-                        end
-                        `EXE_FUN_ADD: begin
-                            we_reg_o = `WriteEnable;
-                            aluop_o = `EXE_ADD_OP;
-                            alusel_o = `EXE_RES_ARITHMETIC;
-                            re1_o = `ReadEnable;
-                            re2_o = `ReadEnable;
-                            instvalid = `InstValid;
-                        end
-                        `EXE_FUN_ADDU: begin
-                            we_reg_o = `WriteEnable;
-                            aluop_o = `EXE_ADDU_OP;
-                            alusel_o = `EXE_RES_ARITHMETIC;
-                            re1_o = `ReadEnable;
-                            re2_o = `ReadEnable;
-                            instvalid = `InstValid;
-                        end
-                        `EXE_FUN_SUB: begin
-                            we_reg_o = `WriteEnable;
-                            aluop_o = `EXE_SUB_OP;
-                            alusel_o = `EXE_RES_ARITHMETIC;
-                            re1_o = `ReadEnable;
-                            re2_o = `ReadEnable;
-                            instvalid = `InstValid;
-                        end
-                        `EXE_FUN_SUBU: begin
-                            we_reg_o = `WriteEnable;
-                            aluop_o = `EXE_SUBU_OP;
-                            alusel_o = `EXE_RES_ARITHMETIC;
-                            re1_o = `ReadEnable;
-                            re2_o = `ReadEnable;
-                            instvalid = `InstValid;
-                        end
-                        `EXE_FUN_MULT: begin
-                            we_reg_o = `WriteDisable;
-                            aluop_o = `EXE_MULT_OP;
-                            re1_o = `ReadEnable;
-                            re2_o = `ReadEnable;
-                            instvalid = `InstValid;
-                        end
-                        `EXE_FUN_MULTU: begin
-                            we_reg_o = `WriteDisable;
-                            aluop_o = `EXE_MULTU_OP;
-                            re1_o = `ReadEnable;
-                            re2_o = `ReadEnable;
-                            instvalid = `InstValid;
-                        end
 
                         default: begin
                         end
@@ -369,15 +308,7 @@ always@(*) begin
                 waddr_reg_o = rt;
                 instvalid = `InstValid;
             end
-            `EXE_PREF: begin                            //预取指令,在本项目中无缓存，不做处理
-                we_reg_o = `WriteEnable;
-                aluop_o = `EXE_NOP_OP;
-                alusel_o = `EXE_RES_NOP;
-                re1_o = `ReadDisable;
-                re2_o = `ReadDisable;
-                waddr_reg_o = `NOPRegAddr;
-                instvalid = `InstValid;
-            end
+            //还差pref指令
 
             `EXE_J: begin
                 we_reg_o = `WriteDisable;
@@ -412,77 +343,166 @@ always@(*) begin
                 instvalid = `InstValid;
                 stallreq_upstream_o = `Stop;
             end
-            `EXE_SLTI: begin
-                we_reg_o = `WriteEnable;
-                aluop_o = `EXE_SLT_OP;
-                alusel_o = `EXE_RES_ARITHMETIC;
+            `EXE_BEQ: begin
+                we_reg_o = `WriteDisable;
+                aluop_o = `EXE_JR_OP;                       //这里的aluop_o没什么大用，取什么都没事
+                alusel_o = `EXE_RES_JUMP_BRANCH;
+                re1_o = `ReadEnable;
+                re2_o = `ReadEnable;
+                raddr1_o = rs;
+                raddr2_o = rt;
+                waddr_reg_o = `NOPRegAddr;
+                instvalid = `InstValid;
+                if(rdata1_o == rdata2_o)begin               //用radata1_o, 不用rdata1_i，可以解决数据冲突
+                    branch_flag_o = `JumpEnable;
+                    branch_target_addr_o = op_imm_expand_32bits + pc_i;
+                    return_addr_o = pc_plus_1;
+                    stallreq_upstream_o = `Stop;
+                end
+                else begin
+                end
+            end
+            `EXE_BNE: begin
+                we_reg_o = `WriteDisable;
+                aluop_o = `EXE_JR_OP;
+                alusel_o = `EXE_RES_JUMP_BRANCH;
+                re1_o = `ReadEnable;
+                re2_o = `ReadEnable;
+                raddr1_o = rs;
+                raddr2_o = rt;
+                waddr_reg_o = `NOPRegAddr;
+                instvalid = `InstValid;
+                if(rdata1_o != rdata2_o)begin
+                    branch_flag_o = `JumpEnable;
+                    branch_target_addr_o = op_imm_expand_32bits + pc_i;
+                    return_addr_o = pc_plus_1;
+                    stallreq_upstream_o = `Stop;
+                end
+                else begin
+                end
+            end
+            `EXE_BLEZ: begin
+                we_reg_o = `WriteDisable;
+                aluop_o = `EXE_JR_OP;
+                alusel_o = `EXE_RES_JUMP_BRANCH;
                 re1_o = `ReadEnable;
                 re2_o = `ReadDisable;
-                imm = {{16{inst_i[15]}}, inst_i[15:0]};
-                waddr_reg_o = inst_i[20:16];
+                raddr1_o = rs;
+                raddr2_o = `NOPRegAddr;
+                waddr_reg_o = `NOPRegAddr;
                 instvalid = `InstValid;
+                if(rdata1_o[31] == 1'b1 || rdata1_o == `ZeroWord)begin
+                    branch_flag_o = `JumpEnable;
+                    branch_target_addr_o = op_imm_expand_32bits + pc_i;
+                    return_addr_o = pc_plus_1;
+                    stallreq_upstream_o = `Stop;
+                end
+                else begin
+                end
             end
-            `EXE_SLTI: begin
-                we_reg_o = `WriteEnable;
-                aluop_o = `EXE_SLTU_OP;
-                alusel_o = `EXE_RES_ARITHMETIC;
+            `EXE_BGTZ: begin
+                we_reg_o = `WriteDisable;
+                aluop_o = `EXE_JR_OP;
+                alusel_o = `EXE_RES_JUMP_BRANCH;
                 re1_o = `ReadEnable;
                 re2_o = `ReadDisable;
-                imm = {{16{inst_i[15]}}, inst_i[15:0]};
-                waddr_reg_o = inst_i[20:16];
+                raddr1_o = rs;
+                raddr2_o = `NOPRegAddr;
+                waddr_reg_o = `NOPRegAddr;
                 instvalid = `InstValid;
+                if(rdata1_o[31] == 1'b0 && rdata1_o != `ZeroWord)begin
+                    branch_flag_o = `JumpEnable;
+                    branch_target_addr_o = op_imm_expand_32bits + pc_i;
+                    return_addr_o = pc_plus_1;
+                    stallreq_upstream_o = `Stop;
+                end
+                else begin
+                end
             end
-            `EXE_ADDI: begin
-                we_reg_o = `WriteEnable;
-                aluop_o = `EXE_ADDI_OP;
-                alusel_o = `EXE_RES_ARITHMETIC;
-                re1_o = `ReadEnable;
-                re2_o = `ReadDisable;
-                imm = {{16{inst_i[15]}}, inst_i[15:0]};
-                waddr_reg_o = inst_i[20:16];
-                instvalid = `InstValid;
-            end
-            `EXE_ADDIU: begin
-                we_reg_o = `WriteEnable;
-                aluop_o = `EXE_ADDIU_OP;
-                alusel_o = `EXE_RES_ARITHMETIC;
-                re1_o = `ReadEnable;
-                re2_o = `ReadDisable;
-                imm = {{16{inst_i[15]}}, inst_i[15:0]};
-                waddr_reg_o = inst_i[20:16];
-                instvalid = `InstValid;
-            end
-            `EXE_SPECIAL2_INST: begin                   //special2指令码
-                case(op_fun)
-                    `EXE_FUN_CLZ: begin
-                        we_reg_o = `WriteEnable;
-                        aluop_o = `EXE_CLZ_OP;
-                        alusel_o = `EXE_RES_ARITHMETIC;
+            `EXE_REGIMM: begin
+                case(rt)
+                    `EXE_BLTZ: begin
+                        we_reg_o = `WriteDisable;
+                        aluop_o = `EXE_JR_OP;
+                        alusel_o = `EXE_RES_JUMP_BRANCH;
                         re1_o = `ReadEnable;
                         re2_o = `ReadDisable;
+                        raddr1_o = rs;
+                        raddr2_o = `NOPRegAddr;
+                        waddr_reg_o = `NOPRegAddr;
                         instvalid = `InstValid;
+                        if(rdata1_o[31] == 1'b1)begin
+                            branch_flag_o = `JumpEnable;
+                            branch_target_addr_o = op_imm_expand_32bits + pc_i;
+                            return_addr_o = pc_plus_1;
+                            stallreq_upstream_o = `Stop;
+                        end
+                        else begin          //按照默认
+                        end
                     end
-                    `EXE_FUN_CLO: begin
-                        we_reg_o = `WriteEnable;
-                        aluop_o = `EXE_CLO_OP;
-                        alusel_o = `EXE_RES_ARITHMETIC;
+                    `EXE_BGEZ: begin
+                        we_reg_o = `WriteDisable;
+                        aluop_o = `EXE_JR_OP;
+                        alusel_o = `EXE_RES_JUMP_BRANCH;
                         re1_o = `ReadEnable;
                         re2_o = `ReadDisable;
+                        raddr1_o = rs;
+                        raddr2_o = `NOPRegAddr;
+                        waddr_reg_o = `NOPRegAddr;
                         instvalid = `InstValid;
+                        if(rdata1_o[31] == 1'b0)begin
+                            branch_flag_o = `JumpEnable;
+                            branch_target_addr_o = op_imm_expand_32bits + pc_i;
+                            return_addr_o = pc_plus_1;
+                            stallreq_upstream_o = `Stop;
+                        end
+                        else begin          //按照默认
+                        end
                     end
-                    `EXE_FUN_MUL: begin
+                    `EXE_BLTZAL: begin
                         we_reg_o = `WriteEnable;
-                        aluop_o = `EXE_MUL_OP;
-                        alusel_o = `EXE_RES_MUL;
+                        aluop_o = `EXE_JALR_OP;
+                        alusel_o = `EXE_RES_JUMP_BRANCH;
                         re1_o = `ReadEnable;
-                        re2_o = `ReadEnable;
+                        re2_o = `ReadDisable;
+                        raddr1_o = rs;
+                        raddr2_o = `NOPRegAddr;
+                        waddr_reg_o = 5'd31; //写入31号寄存器
                         instvalid = `InstValid;
+                        if(rdata1_o[31] == 1'b1)begin
+                            branch_flag_o = `JumpEnable;
+                            branch_target_addr_o = op_imm_expand_32bits + pc_i;
+                            return_addr_o = pc_plus_1;
+                            stallreq_upstream_o = `Stop;
+                        end
+                        else begin          //按照默认
+                        end
                     end
-                    default: begin 
+                    `EXE_BGEZAL: begin
+                        we_reg_o = `WriteEnable;
+                        aluop_o = `EXE_JALR_OP;
+                        alusel_o = `EXE_RES_JUMP_BRANCH;
+                        re1_o = `ReadEnable;
+                        re2_o = `ReadDisable;
+                        raddr1_o = rs;
+                        raddr2_o = `NOPRegAddr;
+                        waddr_reg_o = 5'd31; //写入31号寄存器
+                        instvalid = `InstValid;
+                        if(rdata1_o[31] == 1'b0)begin
+                            branch_flag_o = `JumpEnable;
+                            branch_target_addr_o = op_imm_expand_32bits + pc_i;
+                            return_addr_o = pc_plus_1;
+                            stallreq_upstream_o = `Stop;
+                        end
+                        else begin          //按照默认
+                        end
                     end
-                endcase 
+                endcase
+            end //end of case EXE_REGIMM
+
+            default : begin //这里赋的默认值具体语句在case语句前
             end
-            default: begin end
+            
         endcase
     end //end of else
 end //end of always
