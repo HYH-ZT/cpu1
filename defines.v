@@ -71,6 +71,13 @@
 `define EXE_FUN_SRAV        6'b000111       //算术右移srav指令功能码
 `define EXE_FUN_SYNC        6'b001111       //同步sync指令功能码            ?
 
+`define EXE_FUN_MOVZ        6'b001010       //条件0移动指令
+`define EXE_FUN_MOVN        6'b001011       //条件非0移动指令
+`define EXE_FUN_MFHI        6'b010000       //从HI移动数据指令
+`define EXE_FUN_MTHI        6'b010001       //向HI移动数据指令
+`define EXE_FUN_MFLO        6'b010010       //从LO移动数据指令
+`define EXE_FUN_MTLO        6'b010011       //向LO移动数据指令
+
 //跳转功能码
 `define EXE_FUN_JR           6'b001000       //跳转指令功能码
 `define EXE_FUN_JALR         6'b001001       //跳转并链接jal指令功能码
@@ -88,12 +95,19 @@
 `define EXE_JR_OP           8'b00001000
 `define EXE_JALR_OP         8'b00001001
 
+`define EXE_MOVZ_OP        6'b00001010       
+`define EXE_MOVN_OP        6'b00001011       
+`define EXE_MFHI_OP        6'b00010000       
+`define EXE_MTHI_OP        6'b00010001       
+`define EXE_MFLO_OP        6'b00010010       
+`define EXE_MTLO_OP        6'b00010011   
+
 //ALUSEL部分的宏定义
 `define EXE_RES_NOP         3'b000
 `define EXE_RES_LOGIC       3'b001
 `define EXE_RES_SHIFT       3'b010
 `define EXE_RES_JUMP_BRANCH 3'b011          //可能和其他功能重复，需要改
-
+`define EXE_RES_MOVE        3'b100
 
 //**************************    与指令存储器ROM有关的宏定义     *****************//
 `define InstAddrBus         31:0            //ROM的地址总线宽度

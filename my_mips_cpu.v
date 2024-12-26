@@ -68,18 +68,39 @@ wire [`InstAddrBus] id_ex2ex__return_addr;
 wire ex2ex_mem__we_reg;
 wire [`RegAddrBus] ex2ex_mem__waddr_reg;
 wire [`RegBus] ex2ex_mem__wdata;
+wire [`RegBus] ex2ex_mem__hi;
+wire [`RegBus] ex2ex_mem__lo;
+wire ex2ex_mem__whilo;
+
+
+//连接mem模块与ex模块（防止数据冲突）
+wire mem2ex__whilo;
+wire [`RegBus] mem2ex__hi;
+wire [`RegBus] mem2ex__lo;
+
+
+//连接mem/wb模块与ex模块（防止数据冲突）
+wire mem_wb2ex__whilo;
+wire [`RegBus] mem_wb2ex__hi;
+wire [`RegBus] mem_wb2ex__lo;
 
 
 //连接ex/mem与mem模块
 wire ex_mem2mem__we_reg;
 wire [`RegAddrBus] ex_mem2mem__waddr_reg;
 wire [`RegBus] ex_mem2mem__wdata;
+wire [`RegBus] ex_mem2mem__hi;
+wire [`RegBus] ex_mem2mem__lo;
+wire ex_mem2mem__whilo;
 
 
 //连接mem模块与mem/wb模块
 wire mem2mem_wb__we_reg;
 wire [`RegAddrBus] mem2mem_wb__waddr_reg;
 wire [`RegBus] mem2mem_wb__wdata;
+wire [`RegBus] mem2mem_wb__hi;
+wire [`RegBus] mem2mem_wb__lo;
+wire mem2mem_wb__whilo;
 
 
 //连接mem/wb与regfile模块
@@ -87,9 +108,21 @@ wire mem_wb2regfile__we;
 wire [`RegAddrBus] mem_wb2regfile__waddr;
 wire [`RegBus] mem_wb2regfile__wdata;
 
+//连接mem/wb模块与hilo_reg模块
+wire [`RegBus] wb2hilo__hi;
+wire [`RegBus] wb2hilo__lo;
+wire wb2hilo__we;
+
+
+//连接hilo_reg模块与ex模块
+wire [`RegBus] hilo2ex__hi;
+wire [`RegBus] hilo2ex__lo;
+
+
 //连接id与pc模块
 wire [`InstAddrBus] id2pc__branch_target_addr;
 wire id2pc__branch_flag;
+
 
 //连接ctrl模块与其他模块
 wire stallreq_upstream_from_id;
@@ -244,9 +277,8 @@ assign mem2id__waddr_reg = ex_mem2mem__waddr_reg;
 
 
 //ex实例化
-(*DONT_TOUCH = "yes"*) ex ex_inst0(
+(*DONT_TOUCH = "yes"*) ex ex0(
     .rst(rst),
-
     .aluop_i(id_ex2ex__aluop),
     .alusel_i(id_ex2ex__alusel),
     .rdata1_i(id_ex2ex__rdata1),
@@ -255,59 +287,101 @@ assign mem2id__waddr_reg = ex_mem2mem__waddr_reg;
     .we_reg_i(id_ex2ex__we_reg),
     .now_in_delayslot_i(id_ex2ex__now_in_delayslot),
     .return_addr_i(id_ex2ex__return_addr),
-    
-    // <-in out->
-
+    .hi_i(hilo2ex__hi),
+    .lo_i(hilo2ex__lo),
+    .wb_hi_i(mem_wb2ex__hi),
+    .wb_lo_i(mem_wb2ex__lo),
+    .wb_whilo_i(mem_wb2ex__whilo),
+    .mem_hi_i(mem2ex__hi),
+    .mem_lo_i(mem2ex__lo),
+    .mem_whilo_i(mem2ex__whilo),
     .waddr_reg_o(ex2ex_mem__waddr_reg),
     .we_reg_o(ex2ex_mem__we_reg),
     .wdata_o(ex2ex_mem__wdata),
+    .hi_o(ex2ex_mem__hi),
+    .lo_o(ex2ex_mem__lo),
+    .whilo_o(ex2ex_mem__whilo),
     .stallreq_o(stallreq_from_ex)
 );
 
+//把回连线对应起来
+assign mem_wb2ex__hi = wb2hilo__hi;
+assign mem_wb2ex__lo = wb2hilo__lo;
+assign mem_wb2ex__whilo = wb2hilo__we;
+assign mem2ex__hi = mem2mem_wb__hi;
+assign mem2ex__lo = mem2mem_wb__lo;
+assign mem2ex__whilo = mem2mem_wb__whilo;
+
 
 // ex/mem实例化
-(*DONT_TOUCH = "yes"*)ex_mem ex_mem_inst0(
+(*DONT_TOUCH = "yes"*)ex_mem ex_mem0(
     .clk(clk),
     .rst(rst),
     .ex_waddr_reg_i(ex2ex_mem__waddr_reg),
     .ex_we_reg_i(ex2ex_mem__we_reg),
     .ex_wdata_i(ex2ex_mem__wdata),
     .stall(stall),
-    // <-in out->
+    .ex_hi_i(ex2ex_mem__hi),
+    .ex_lo_i(ex2ex_mem__lo),
+    .ex_whilo_i(ex2ex_mem__whilo),
     .mem_waddr_reg_o(ex_mem2mem__waddr_reg),
     .mem_we_reg_o(ex_mem2mem__we_reg),
-    .mem_wdata_o(ex_mem2mem__wdata)
+    .mem_wdata_o(ex_mem2mem__wdata),
+    .mem_hi_o(ex_mem2mem__hi),
+    .mem_lo_o(ex_mem2mem__lo),
+    .mem_whilo_o(ex_mem2mem__whilo)
 );
 
 
 // mem实例化
-(*DONT_TOUCH = "yes"*) mem mem_inst0(
+(*DONT_TOUCH = "yes"*) mem mem0(
     .rst(rst),
     .waddr_reg_i(ex_mem2mem__waddr_reg),
     .we_reg_i(ex_mem2mem__we_reg),
     .wdata_i(ex_mem2mem__wdata),
-    // <-in out->
+    .hi_i(ex_mem2mem__hi),
+    .lo_i(ex_mem2mem__lo),
+    .whilo_i(ex_mem2mem__whilo),
     .waddr_reg_o(mem2mem_wb__waddr_reg),
     .we_reg_o(mem2mem_wb__we_reg),
-    .wdata_o(mem2mem_wb__wdata)
+    .wdata_o(mem2mem_wb__wdata),
+    .hi_o(mem2mem_wb__hi),
+    .lo_o(mem2mem_wb__lo),
+    .whilo_o(mem2mem_wb__whilo)
 );
 
 
 // mem/wb实例化
-(*DONT_TOUCH = "yes"*)mem_wb mem_wb_inst0(
+(*DONT_TOUCH = "yes"*)mem_wb mem_wb0(
     .clk(clk),
     .rst(rst),
     .mem_waddr_reg_i(mem2mem_wb__waddr_reg),
     .mem_we_reg_i(mem2mem_wb__we_reg),
     .mem_wdata_i(mem2mem_wb__wdata),
     .stall(stall),
-
-    // <-in out->
-    
+    .mem_hi_i(mem2mem_wb__hi),
+    .mem_lo_i(mem2mem_wb__lo),
+    .mem_whilo_i(mem2mem_wb__whilo),
     .wb_waddr_reg_o(mem_wb2regfile__waddr),
     .wb_we_reg_o(mem_wb2regfile__we),
-    .wb_wdata_o(mem_wb2regfile__wdata)
+    .wb_wdata_o(mem_wb2regfile__wdata),
+    .wb_hi_o(wb2hilo__hi),
+    .wb_lo_o(wb2hilo__lo),
+    .wb_whilo_o(wb2hilo__we)
 );
+
+
+//实例化hilo_reg模块
+(*DONT_TOUCH = "yes"*)hilo_reg hilo_reg0(
+    .clk(clk),
+    .rst(rst),
+    .we(wb2hilo__we),
+    .hi_i(wb2hilo__hi),
+    .lo_i(wb2hilo__lo),
+    .hi_o(hilo2ex__hi),
+    .lo_o(hilo2ex__lo)
+);
+
 
 // ctrl模块实例化
 (*DONT_TOUCH = "yes"*) ctrl ctrl_inst0(
